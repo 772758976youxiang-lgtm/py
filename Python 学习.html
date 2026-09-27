@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>macOS 备忘录 - Python 代码实验室</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Skulpt Python In-Browser Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js"></script>
+
+    <style>
+      :root {
+        --macos-bg: #f5f5f7;
+        --sidebar-bg: #f6f6f6;
+        --border-color: #e5e5e7;
+        --accent-orange: #d97706;
+        --editor-font-size: 13.5px;
+        --editor-line-height: 24px;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        user-select: none;
+      }
+
+      .code-font {
+        font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+
+      /* Custom macOS Thin Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.12);
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.22);
+      }
+
+      /* Python Syntax Highlighting Tokens (macOS Xcode Light Theme) */
+      .token-keyword {
+        color: #ad3da4;
+        font-weight: 600;
+      }
+      .token-string {
+        color: #d12f1b;
+      }
+      .token-comment {
+        color: #707f8d;
+        font-style: italic;
+      }
+      .token-builtin {
+        color: #4b2185;
+        font-weight: 500;
+      }
+      .token-function {
+        color: #00739c;
+        font-weight: 500;
+      }
+      .token-number {
+        color: #272ad8;
+      }
+      .token-constant {
+        color: #ad3da4;
+        font-weight: 600;
+      }
+      .token-decorator {
+        color: #835200;
+      }
+      .token-operator {
+        color: #3f4752;
+      }
+
+      /* Code Editor and Syntax Highlight Layer Synchronization */
+      .editor-layer-shared {
+        font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+        font-size: var(--editor-font-size) !important;
+        line-height: var(--editor-line-height) !important;
+        tab-size: 4 !important;
+        padding: 14px 16px 14px 4px !important;
+        margin: 0 !important;
+        border: 0 !important;
+        white-space: pre !important;
+        word-wrap: normal !important;
+        box-sizing: border-box !important;
+      }
+
+      #gutter {
+        font-size: var(--editor-font-size) !important;
+        line-height: var(--editor-line-height) !important;
+      }
+
+      #gutter > div {
+        height: var(--editor-line-height) !important;
+        line-height: var(--editor-line-height) !important;
+      }
+
+      #code-editor {
+        color: transparent;
+        caret-color: #f59e0b;
+        background: transparent;
+        resize: none;
+        outline: none;
+      }
+
+      #code-editor::selection {
+        background: rgba(179, 215, 255, 0.65);
+        color: transparent;
+      }
+
+      #code-editor::placeholder {
+        color: #d1d5db;
+      }
+
+      /* Frosted window glass effect */
+      .macos-window-shadow {
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.08);
+      }
+
+      /* Smooth Apple-like cubic bezier transition for sidebars */
+      #sidebar {
+        transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                    border-color 0.25s ease;
+        will-change: width, opacity;
+      }
+
+      #sidebar.collapsed {
+        width: 0 !important;
+        opacity: 0 !important;
+        border-right-width: 0 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
+      }
+
+      #right-sidebar {
+        transition: width 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                    border-color 0.25s ease;
+        will-change: width, opacity;
+      }
+
+      #right-sidebar.collapsed {
+        width: 0 !important;
+        opacity: 0 !important;
+        border-left-width: 0 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
+      }
+
+      /* Settings Modal Fixed Aspect Ratio & Adaptive Sizing */
+      #settings-panel {
+        width: min(880px, 92vw, calc(86vh * (16 / 10.5)));
+        aspect-ratio: 16 / 10.5;
+        max-height: 88vh;
+      }
+
+      @media (max-width: 640px) {
+        #settings-panel {
+          width: 94vw;
+          height: 82vh;
+          max-height: 88vh;
+          aspect-ratio: auto;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .mobile-sidebar-overlay {
+          position: absolute !important;
+          top: 0;
+          bottom: 0;
+          z-index: 30;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-[#2D2D2D] h-screen w-screen overflow-hidden flex items-center justify-center p-0 sm:p-2 md:p-4">
+
+    <!-- Main Window Container -->
+    <div class="w-full h-full max-w-none md:max-w-[1600px] bg-white rounded-none sm:rounded-xl macos-window-shadow flex flex-col overflow-hidden border-0 sm:border border-[#D1D1D6]/60">
+      
+      <!-- Top macOS Toolbar -->
+      <header class="h-14 min-h-[56px] bg-[#F6F6F6] border-b border-[#E5E5E7] flex items-center justify-between px-2.5 sm:px-4 select-none relative z-20 gap-2">
+        <!-- Left: Traffic Lights & Actions -->
+        <div class="flex items-center space-x-1.5 sm:space-x-2.5 flex-shrink-0">
+          <div class="hidden xs:flex items-center space-x-1.5 sm:space-x-2 mr-0.5 sm:mr-1">
+            <span class="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E] hover:opacity-80 transition cursor-pointer"></span>
+            <span class="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123] hover:opacity-80 transition cursor-pointer"></span>
+            <span class="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29] hover:opacity-80 transition cursor-pointer"></span>
+          </div>
+
+          <!-- Left Sidebar Toggle -->
+          <button id="toggle-sidebar-btn" title="显示/隐藏左边栏" class="p-1.5 text-gray-500 hover:text-gray-900 rounded-md hover:bg-black/5 transition">
+            <i data-lucide="panel-left" class="w-4 h-4"></i>
+          </button>
+
+          <!-- New Note Button -->
+          <button id="btn-new-note" title="新建备忘录" class="p-1.5 text-gray-500 hover:text-gray-900 rounded-md hover:bg-black/5 transition">
+            <i data-lucide="square-pen" class="w-4 h-4"></i>
+          </button>
+
+          <!-- App Title -->
+          <div class="flex flex-col ml-0.5 sm:ml-1">
+            <span class="text-xs font-semibold text-gray-800 leading-tight truncate max-w-[85px] sm:max-w-none">Python 模拟</span>
+            <span id="note-count-badge" class="text-[10.5px] sm:text-[11px] text-gray-400">1 个脚本</span>
+          </div>
+        </div>
+
+        <!-- Center: Search Bar Centered -->
+        <div class="flex-1 flex justify-center px-1 sm:px-4 min-w-[110px] max-w-[380px]">
+          <div class="relative w-full">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+            <input id="search-input" type="text" placeholder="搜索脚本..." 
+              class="w-full pl-8 pr-2.5 py-1.5 text-xs bg-black/5 hover:bg-black/10 focus:bg-white text-gray-800 rounded-md border border-transparent focus:border-[#007AFF] outline-none transition placeholder-gray-400 text-center focus:text-left shadow-none focus:shadow-sm" />
+          </div>
+        </div>
+
+        <!-- Right: AI Assistant Toggle Button -->
+        <div class="flex items-center space-x-1.5 justify-end flex-shrink-0">
+          <button id="toggle-right-sidebar-btn" title="显示/隐藏 AI 助手" class="p-1.5 text-gray-500 hover:text-gray-900 rounded-md hover:bg-black/5 transition flex items-center space-x-1">
+            <i data-lucide="sparkles" class="w-4 h-4 text-purple-600"></i>
+            <span class="text-xs text-gray-700 font-medium hidden md:inline">AI 助手</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Left Sidebar: Note List -->
+        <aside id="sidebar" class="w-64 sm:w-72 bg-[#F6F6F6] border-r border-[#E5E5E7] flex flex-col flex-shrink-0 select-none overflow-hidden h-full mobile-sidebar-overlay left-0">
+          <div id="notes-list-container" class="flex-1 overflow-y-auto p-2 space-y-1 w-64 sm:w-72">
+            <!-- Dynamically populated via JS -->
+          </div>
+
+          <!-- Bottom: Settings Button -->
+          <div class="h-10 px-2 flex items-center border-t border-[#EAEAEA] w-64 sm:w-72 bg-[#F6F6F6]">
+            <button id="btn-open-settings" title="打开设置" class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-gray-700 hover:text-gray-900 rounded-lg hover:bg-black/5 active:bg-black/10 transition group">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="settings" class="w-4 h-4 text-gray-500 group-hover:rotate-45 transition-transform duration-300"></i>
+                <span class="font-medium text-xs">设置</span>
+              </div>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-gray-400 group-hover:translate-x-0.5 transition-transform"></i>
+            </button>
+          </div>
+        </aside>
+
+        <!-- Center Area: Editor + Terminal Panel -->
+        <main class="flex-1 flex flex-col h-full bg-white relative overflow-hidden min-w-[200px]">
+          
+          <!-- Note Date Stamp -->
+          <div class="h-8 flex items-center justify-center text-center select-none pt-2 pb-1 border-b border-transparent">
+            <span id="current-note-date" class="text-xs text-gray-400 font-medium tracking-wide">
+              2026年9月27日 14:19
+            </span>
+          </div>
+
+          <!-- Code Editor Body (Gutter + Highlight Layer + Textarea) -->
+          <div class="flex-1 relative overflow-hidden flex bg-white">
+            <!-- Line Numbers Gutter -->
+            <div id="gutter" class="w-11 sm:w-12 bg-white text-gray-300 select-none text-right pr-2.5 pt-[14px] font-mono border-r border-[#F0F0F2] flex-shrink-0 overflow-hidden leading-[24px]">
+              <div>1</div>
+            </div>
+
+            <!-- Editor Wrapper -->
+            <div class="flex-1 relative h-full overflow-hidden">
+              <!-- Syntax Highlight Overlay -->
+              <pre id="highlight-layer" class="editor-layer-shared absolute inset-0 overflow-auto pointer-events-none text-gray-800 m-0 z-0 bg-transparent select-none" aria-hidden="true"><code></code></pre>
+
+              <!-- Transparent Input Textarea -->
+              <textarea id="code-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"
+                placeholder="# 在这里编写 Python 代码..."
+                class="editor-layer-shared absolute inset-0 w-full h-full overflow-auto z-10 font-mono"></textarea>
+            </div>
+          </div>
+
+          <div id="terminal-drawer" class="h-44 sm:h-56 max-h-[48vh] bg-white text-gray-800 border-t border-[#E5E5E5] flex flex-col select-text">
+            
+            <!-- Terminal Header Bar -->
+            <div class="h-9 bg-[#F5F5F7] px-3.5 flex items-center justify-between border-b border-[#E8E8E8] select-none">
+              <div class="flex items-center space-x-2 overflow-hidden">
+                <i data-lucide="play-circle" class="w-3.5 h-3.5 text-gray-500 flex-shrink-0"></i>
+                <span class="text-xs font-semibold text-gray-700 tracking-tight flex-shrink-0">模拟运行</span>
+                <span id="exec-status" class="text-[11px] text-gray-400 ml-1 truncate hidden"></span>
+                <!-- Explain Error Button (AI) -->
+                <button id="btn-explain-error" class="hidden items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] bg-red-50 hover:bg-purple-50 text-red-600 hover:text-purple-700 border border-red-200 hover:border-purple-300 transition active:scale-95 shadow-sm flex-shrink-0">
+                  <i data-lucide="sparkles" class="w-3 h-3 text-purple-600"></i>
+                  <span class="font-medium">AI 解释原因</span>
+                </button>
+              </div>
+
+              <!-- Terminal Actions -->
+              <div class="flex items-center space-x-2 flex-shrink-0">
+                <button id="btn-run-code" title="运行代码 (⌘+Enter)" class="flex items-center space-x-1.5 bg-[#007AFF] hover:bg-[#0062D2] active:bg-[#0051B3] text-white px-2.5 py-1 rounded-md text-xs font-medium shadow-sm transition active:scale-95">
+                  <i data-lucide="play" class="w-3 h-3 fill-current"></i>
+                  <span>运行</span>
+                  <span class="text-[10px] opacity-75 hidden sm:inline ml-0.5">⌘↵</span>
+                </button>
+                <button id="btn-clear-terminal" title="清空输出" class="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 rounded hover:bg-black/5 transition">
+                  清空
+                </button>
+              </div>
+            </div>
+
+            <!-- Terminal Output Area -->
+            <div id="terminal-output" class="flex-1 p-3.5 overflow-y-auto font-mono text-[12.5px] leading-relaxed space-y-1 bg-white selection:bg-[#B3D7FF]">
+              <div class="text-gray-400">// Python 模拟环境已就绪</div>
+              <div class="text-gray-400">// 点击右上角 “运行” 按钮或按 ⌘+Enter 查看输出</div>
+            </div>
+          </div>
+
+        </main>
+
+        <aside id="right-sidebar" class="w-72 sm:w-80 md:w-88 bg-[#FBFBFD] border-l border-[#E5E5E7] flex flex-col flex-shrink-0 select-none overflow-hidden h-full mobile-sidebar-overlay right-0">
+          <!-- Chat Messages Container -->
+          <div id="ai-chat-messages" class="flex-1 p-3 overflow-y-auto space-y-3 text-xs select-text">
+          </div>
+
+          <!-- Chat Input Area -->
+          <div class="p-2.5 bg-white border-t border-[#E8E8EB] flex-shrink-0">
+            <div class="relative bg-[#F5F5F7] rounded-xl border border-gray-200 focus-within:border-purple-500 focus-within:bg-white transition-all shadow-inner">
+              <textarea id="ai-input-text" rows="2" placeholder="询问 AI 助手... (Enter 发送)"
+                class="w-full bg-transparent px-3 py-2 text-xs text-gray-800 placeholder-gray-400 outline-none resize-none leading-relaxed"></textarea>
+              <div class="flex items-center justify-between px-2.5 pb-2 pt-0.5">
+                <label class="flex items-center space-x-1 cursor-pointer select-none">
+                  <input type="checkbox" id="ai-attach-code-checkbox" checked class="rounded text-purple-600 focus:ring-0 w-3 h-3 border-gray-300">
+                  <span class="text-[10.5px] text-gray-500">附带代码</span>
+                </label>
+                <button id="ai-send-btn" class="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-40 text-white rounded-lg px-2.5 py-1 text-[11px] font-medium transition flex items-center space-x-1">
+                  <span>发送</span>
+                  <i data-lucide="arrow-up" class="w-3 h-3"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+      </div>
+    </div>
+
+    <div id="settings-modal" class="fixed inset-0 bg-black/40 backdrop-blur-[4px] z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 hidden opacity-0 transition-opacity duration-200 select-none overflow-y-auto">
+      <div id="settings-panel" class="bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col transform scale-95 transition-transform duration-200 border border-gray-200/80 my-auto flex-shrink-0">
+        
+        <!-- Settings Modal Top Bar -->
+        <div class="h-13 min-h-[52px] bg-white border-b border-gray-100 px-4 sm:px-6 flex items-center justify-between flex-shrink-0 select-none">
+          <span class="text-base font-bold text-gray-900 tracking-tight">设置</span>
+          <div class="flex items-center space-x-2 sm:space-x-3">
+            <button id="btn-close-settings" class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition" title="关闭设置">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Settings Body Split Layout -->
+        <div class="flex-1 flex overflow-hidden min-h-0">
+          
+          <!-- Left Navigation Menu -->
+          <div class="w-48 sm:w-52 bg-[#FBFBFD] border-r border-gray-100 p-3 sm:p-3.5 flex flex-col space-y-1 flex-shrink-0 select-none">
+            <button class="settings-tab-btn active flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-900 bg-gray-200/70 transition" data-tab="general">
+              <i data-lucide="settings" class="w-4 h-4 text-gray-700 flex-shrink-0"></i>
+              <span class="truncate">通用设置</span>
+            </button>
+            <button class="settings-tab-btn flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100/70 transition" data-tab="model">
+              <i data-lucide="cpu" class="w-4 h-4 text-gray-500 flex-shrink-0"></i>
+              <span class="truncate">模型</span>
+            </button>
+          </div>
+
+          <!-- Right Content Area -->
+          <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-5 sm:py-6 text-xs text-gray-800 select-none" id="settings-content-pane">
+            
+            <!-- Tab Pane 1: 通用设置 -->
+            <div id="tab-pane-general" class="settings-tab-panel space-y-4 sm:space-y-5">
+              <!-- 语言 -->
+              <div class="flex items-center justify-between py-0.5">
+                <div>
+                  <div class="text-sm font-medium text-gray-900">语言</div>
+                </div>
+                <div class="relative">
+                  <select class="appearance-none bg-[#F5F5F7] hover:bg-gray-200/80 border border-transparent rounded-xl px-3.5 py-1.5 pr-7 text-xs font-medium text-gray-800 outline-none cursor-pointer transition">
+                    <option selected>中文</option>
+                    <option>English</option>
+                  </select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                </div>
+              </div>
+
+              <!-- 外观 -->
+              <div class="space-y-2 py-0.5">
+                <div class="text-sm font-medium text-gray-900">外观</div>
+                <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                  <button type="button" class="theme-choice-btn active flex flex-col items-center justify-center p-2.5 sm:p-3.5 rounded-xl border-2 border-gray-900 bg-white text-gray-900 transition hover:shadow-xs group cursor-pointer" data-theme="light">
+                    <i data-lucide="sun" class="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-1.5 text-gray-800 group-hover:scale-105 transition-transform"></i>
+                    <span class="text-xs font-medium">浅色</span>
+                  </button>
+                  <button type="button" class="theme-choice-btn flex flex-col items-center justify-center p-2.5 sm:p-3.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-gray-400 transition hover:shadow-xs group cursor-pointer" data-theme="dark">
+                    <i data-lucide="moon" class="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-1.5 text-gray-600 group-hover:scale-105 transition-transform"></i>
+                    <span class="text-xs font-medium">深色</span>
+                  </button>
+                  <button type="button" class="theme-choice-btn flex flex-col items-center justify-center p-2.5 sm:p-3.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-gray-400 transition hover:shadow-xs group cursor-pointer" data-theme="system">
+                    <i data-lucide="monitor" class="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-1.5 text-gray-600 group-hover:scale-105 transition-transform"></i>
+                    <span class="text-xs font-medium truncate">跟随系统</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 字号大小 -->
+              <div class="space-y-1.5 py-0.5">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-medium text-gray-900">字号大小</div>
+                    <div class="text-[11.5px] text-gray-400 mt-0.5">仅影响会话与代码编辑器内容的字号</div>
+                  </div>
+                  <div class="flex items-center space-x-1.5">
+                    <div class="bg-[#F5F5F7] px-3 py-1 rounded-xl font-mono text-xs font-semibold text-gray-800 min-w-[46px] text-center border border-gray-100">
+                      <span id="font-size-display">13.5</span>
+                    </div>
+                    <span class="text-gray-400 font-medium text-xs">px</span>
+                  </div>
+                </div>
+                
+                <!-- 滑动调节条 -->
+                <div class="pt-1 flex items-center space-x-3">
+                  <span class="text-[11px] text-gray-400 font-semibold select-none">A</span>
+                  <input 
+                    type="range" 
+                    id="setting-font-size-slider" 
+                    min="11" 
+                    max="22" 
+                    step="0.5" 
+                    value="13.5"
+                    class="flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none"
+                  />
+                  <span class="text-sm text-gray-700 font-bold select-none">A</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab Pane 2: 模型 -->
+            <div id="tab-pane-model" class="settings-tab-panel hidden space-y-4">
+              <!-- View 1: Provider List -->
+              <div id="provider-list-view" class="space-y-3.5">
+                <div>
+                  <h3 class="text-base font-bold text-gray-900 tracking-tight">模型</h3>
+                  <p class="text-xs text-gray-500 mt-1">填入各提供商的 API 密钥即可使用其模型。</p>
+                </div>
+
+                <!-- Provider Card Container -->
+                <div id="providers-container" class="space-y-2.5 pt-1">
+                  <!-- Dynamically rendered via JS -->
+                </div>
+
+                <!-- Add Provider Dashed Button -->
+                <button id="btn-show-add-provider" type="button" class="w-full py-3 px-4 border border-dashed border-gray-300 hover:border-gray-400 active:border-gray-500 rounded-2xl text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50/60 active:bg-gray-100 transition flex items-center justify-center space-x-1.5 select-none cursor-pointer">
+                  <span class="text-sm font-light leading-none">+</span>
+                  <span>添加模型提供商</span>
+                </button>
+              </div>
+
+              <!-- View 2: Add / Edit Provider Form -->
+              <div id="provider-form-view" class="hidden space-y-3 text-xs select-text">
+                <!-- Provider ID -->
+                <div class="space-y-1">
+                  <label class="block text-xs font-medium text-gray-700">Provider ID</label>
+                  <input id="provider-input-id" type="text" placeholder="acme-gateway"
+                    class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" />
+                  <p class="text-[11px] text-gray-400 leading-normal">以小写字母开头的标识，在请求中唯一标识该提供商，并用于派生凭据名。</p>
+                </div>
+
+                <!-- Display Name -->
+                <div class="space-y-1">
+                  <label class="block text-xs font-medium text-gray-700">显示名称</label>
+                  <input id="provider-input-name" type="text" placeholder="显示名称"
+                    class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" />
+                </div>
+
+                <!-- API Address -->
+                <div class="space-y-1">
+                  <label class="block text-xs font-medium text-gray-700">API 地址</label>
+                  <input id="provider-input-url" type="text" placeholder="https://gateway.example/v1"
+                    class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition font-mono" />
+                </div>
+
+                <!-- API Protocol Dropdown -->
+                <div class="space-y-1">
+                  <label class="block text-xs font-medium text-gray-700">API 协议</label>
+                  <div class="relative">
+                    <select id="provider-input-protocol"
+                      class="w-full appearance-none px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer transition pr-8 font-medium">
+                      <option value="openai-chat" selected>OpenAI Chat Completions</option>
+                      <option value="openai-responses">OpenAI Responses</option>
+                      <option value="anthropic-messages">Anthropic Messages</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                  </div>
+                </div>
+
+                <!-- API Key -->
+                <div class="space-y-1">
+                  <label class="block text-xs font-medium text-gray-700">API 密钥</label>
+                  <input id="provider-input-key" type="password" placeholder="输入 API 密钥"
+                    class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition font-mono" />
+                </div>
+
+                <!-- Model Directory Section -->
+                <div class="space-y-1.5 pt-1.5 border-t border-gray-100">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-gray-700">模型目录</span>
+                    <button type="button" class="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer transition">获取可用模型</button>
+                  </div>
+                  <div class="p-3 border border-dashed border-gray-200 rounded-xl text-center text-xs text-gray-400 bg-gray-50/40 select-none">
+                    模型选择器中将不显示任何模型；目录外 ID 仍可直接发送。
+                  </div>
+                  <button type="button" class="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition flex items-center space-x-1 select-none">
+                    <span>+</span>
+                    <span>添加模型</span>
+                  </button>
+                </div>
+
+                <!-- Form Action Buttons -->
+                <div class="flex items-center justify-end space-x-2 pt-3 border-t border-gray-100">
+                  <button id="btn-cancel-provider" type="button" class="px-3.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-medium text-gray-700 transition cursor-pointer select-none">
+                    取消
+                  </button>
+                  <button id="btn-save-provider" type="button" class="px-3.5 py-1.5 rounded-lg bg-[#8E8E93] hover:bg-[#7A7A80] active:bg-[#68686E] text-white text-xs font-medium transition cursor-pointer select-none">
+                    创建提供商
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = 'macos_notes_python_storage_v4';
+      const SETTINGS_KEY = 'macos_notes_app_settings_v4';
+      const PROVIDERS_KEY = 'macos_notes_providers_v1';
+
+      let notes = [];
+      let activeNoteId = null;
+      let lastExecutionError = null;
+
+      let appSettings = {
+        fontSize: '13.5',
+        theme: 'light',
+        tabSize: '4'
+      };
+
+      let providers = [
+        {
+          id: 'deepseek',
+          name: 'DeepSeek',
+          url: 'https://api.deepseek.com/v1',
+          protocol: 'openai-chat',
+          key: '',
+          active: true
+        }
+      ];
+      let editingProviderId = null;
+
+      function loadProviders() {
+        try {
+          const raw = localStorage.getItem(PROVIDERS_KEY);
+          if (raw) {
+            providers = JSON.parse(raw);
+          }
+        } catch(e) {}
+      }
+
+      function saveProviders() {
+        try {
+          localStorage.setItem(PROVIDERS_KEY, JSON.stringify(providers));
+        } catch(e) {}
+      }
+
+      function renderProvidersList() {
+        const container = document.getElementById('providers-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+        providers.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'w-full py-2.5 px-4 bg-white border border-gray-200 rounded-2xl flex items-center justify-between shadow-2xs hover:border-gray-300 transition';
+
+          card.innerHTML = `
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-medium text-gray-900">${escapeHtml(p.name)}</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+            </div>
+            <button type="button" class="btn-edit-provider px-3 py-1 text-xs text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition active:scale-95 cursor-pointer" data-id="${escapeHtml(p.id)}">
+              编辑
+            </button>
+          `;
+
+          const editBtn = card.querySelector('.btn-edit-provider');
+          if (editBtn) {
+            editBtn.addEventListener('click', () => {
+              openProviderForm(p.id);
+            });
+          }
+
+          container.appendChild(card);
+        });
+      }
+
+      function openProviderForm(providerId = null) {
+        editingProviderId = providerId;
+        const listView = document.getElementById('provider-list-view');
+        const formView = document.getElementById('provider-form-view');
+        const saveBtn = document.getElementById('btn-save-provider');
+
+        const inputId = document.getElementById('provider-input-id');
+        const inputName = document.getElementById('provider-input-name');
+        const inputUrl = document.getElementById('provider-input-url');
+        const inputProtocol = document.getElementById('provider-input-protocol');
+        const inputKey = document.getElementById('provider-input-key');
+
+        if (providerId) {
+          const p = providers.find(item => item.id === providerId);
+          if (p) {
+            if (inputId) { inputId.value = p.id; inputId.disabled = true; }
+            if (inputName) inputName.value = p.name || '';
+            if (inputUrl) inputUrl.value = p.url || '';
+            if (inputProtocol) inputProtocol.value = p.protocol || 'openai-chat';
+            if (inputKey) inputKey.value = p.key || '';
+          }
+          if (saveBtn) saveBtn.textContent = '保存修改';
+        } else {
+          if (inputId) { inputId.value = ''; inputId.disabled = false; }
+          if (inputName) inputName.value = '';
+          if (inputUrl) inputUrl.value = '';
+          if (inputProtocol) inputProtocol.value = 'openai-chat';
+          if (inputKey) inputKey.value = '';
+          if (saveBtn) saveBtn.textContent = '创建提供商';
+        }
+
+        if (listView) listView.classList.add('hidden');
+        if (formView) formView.classList.remove('hidden');
+      }
+
+      function closeProviderForm() {
+        const listView = document.getElementById('provider-list-view');
+        const formView = document.getElementById('provider-form-view');
+        editingProviderId = null;
+
+        if (formView) formView.classList.add('hidden');
+        if (listView) listView.classList.remove('hidden');
+        renderProvidersList();
+      }
+
+      function handleSaveProvider() {
+        const inputId = document.getElementById('provider-input-id');
+        const inputName = document.getElementById('provider-input-name');
+        const inputUrl = document.getElementById('provider-input-url');
+        const inputProtocol = document.getElementById('provider-input-protocol');
+        const inputKey = document.getElementById('provider-input-key');
+
+        const idVal = inputId ? inputId.value.trim().toLowerCase() : '';
+        const nameVal = inputName ? inputName.value.trim() : '';
+
+        if (!idVal && !editingProviderId) {
+          if (inputId) inputId.focus();
+          return;
+        }
+
+        if (editingProviderId) {
+          const p = providers.find(item => item.id === editingProviderId);
+          if (p) {
+            p.name = nameVal || p.name;
+            p.url = inputUrl ? inputUrl.value.trim() : '';
+            p.protocol = inputProtocol ? inputProtocol.value : 'openai-chat';
+            p.key = inputKey ? inputKey.value.trim() : '';
+          }
+        } else {
+          providers.push({
+            id: idVal,
+            name: nameVal || idVal,
+            url: inputUrl ? inputUrl.value.trim() : '',
+            protocol: inputProtocol ? inputProtocol.value : 'openai-chat',
+            key: inputKey ? inputKey.value.trim() : '',
+            active: true
+          });
+        }
+
+        saveProviders();
+        closeProviderForm();
+      }
+
+      safeAddListener('btn-show-add-provider', 'click', () => openProviderForm(null));
+      safeAddListener('btn-cancel-provider', 'click', closeProviderForm);
+      safeAddListener('btn-save-provider', 'click', handleSaveProvider);
+
+      function safeAddListener(id, event, handler) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener(event, handler);
+        }
+      }
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function loadSettings() {
+        try {
+          const raw = localStorage.getItem(SETTINGS_KEY);
+          if (raw) {
+            appSettings = Object.assign(appSettings, JSON.parse(raw));
+          }
+        } catch(e) {}
+        applySettings();
+      }
+
+      function saveSettings() {
+        try {
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(appSettings));
+        } catch(e) {}
+      }
+
+      function applySettings() {
+        const fs = parseFloat(appSettings.fontSize) || 13.5;
+        const lh = Math.round(fs * 1.75);
+
+        document.documentElement.style.setProperty('--editor-font-size', `${fs}px`);
+        document.documentElement.style.setProperty('--editor-line-height', `${lh}px`);
+
+        const editor = document.getElementById('code-editor');
+        const highlightLayer = document.getElementById('highlight-layer');
+        const gutter = document.getElementById('gutter');
+        const fontDisplay = document.getElementById('font-size-display');
+        const fontSlider = document.getElementById('setting-font-size-slider');
+
+        if (editor) {
+          editor.style.setProperty('font-size', `${fs}px`, 'important');
+          editor.style.setProperty('line-height', `${lh}px`, 'important');
+        }
+        if (highlightLayer) {
+          highlightLayer.style.setProperty('font-size', `${fs}px`, 'important');
+          highlightLayer.style.setProperty('line-height', `${lh}px`, 'important');
+        }
+        if (gutter) {
+          gutter.style.setProperty('font-size', `${fs}px`, 'important');
+          gutter.style.setProperty('line-height', `${lh}px`, 'important');
+          Array.from(gutter.children).forEach(child => {
+            child.style.setProperty('height', `${lh}px`, 'important');
+            child.style.setProperty('line-height', `${lh}px`, 'important');
+          });
+        }
+        if (fontDisplay) fontDisplay.textContent = fs.toFixed(1);
+        if (fontSlider) fontSlider.value = fs;
+      }
+
+      const PYTHON_KEYWORDS = [
+        'def', 'return', 'class', 'import', 'from', 'as', 'if', 'elif', 'else',
+        'while', 'for', 'in', 'try', 'except', 'finally', 'raise', 'with', 'pass',
+        'continue', 'break', 'lambda', 'yield', 'global', 'nonlocal', 'assert',
+        'del', 'async', 'await'
+      ];
+      const PYTHON_BUILTINS = [
+        'print', 'len', 'range', 'str', 'int', 'float', 'list', 'dict', 'set',
+        'tuple', 'type', 'isinstance', 'enumerate', 'zip', 'map', 'filter',
+        'sum', 'min', 'max', 'abs', 'round', 'sorted', 'reversed', 'open', 'super', 'id'
+      ];
+      const PYTHON_CONSTANTS = ['True', 'False', 'None'];
+
+      function highlightPython(code) {
+        if (!code) return '';
+        const lines = code.split('\n');
+        
+        return lines.map(line => {
+          let commentPart = '';
+          let codePart = line;
+
+          const commentIdx = line.indexOf('#');
+          if (commentIdx !== -1) {
+            codePart = line.slice(0, commentIdx);
+            commentPart = `<span class="token-comment">${escapeHtml(line.slice(commentIdx))}</span>`;
+          }
+
+          const stringRegex = /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g;
+          const pieces = [];
+          let lastIdx = 0;
+          let match;
+
+          while ((match = stringRegex.exec(codePart)) !== null) {
+            if (match.index > lastIdx) {
+              pieces.push({ type: 'code', text: codePart.substring(lastIdx, match.index) });
+            }
+            pieces.push({ type: 'string', text: match[0] });
+            lastIdx = match.index + match[0].length;
+          }
+          if (lastIdx < codePart.length) {
+            pieces.push({ type: 'code', text: codePart.substring(lastIdx) });
+          }
+
+          const highlightedParts = pieces.map(part => {
+            if (part.type === 'string') {
+              return `<span class="token-string">${escapeHtml(part.text)}</span>`;
+            }
+
+            let text = escapeHtml(part.text);
+
+            text = text.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, (m, fnName) => {
+              if (PYTHON_KEYWORDS.includes(fnName)) return m;
+              if (PYTHON_BUILTINS.includes(fnName)) {
+                return `<span class="token-builtin">${fnName}</span>`;
+              }
+              return `<span class="token-function">${fnName}</span>`;
+            });
+
+            text = text.replace(/\b([a-zA-Z_]\w*)\b/g, (m, word) => {
+              if (PYTHON_KEYWORDS.includes(word)) {
+                return `<span class="token-keyword">${word}</span>`;
+              }
+              if (PYTHON_CONSTANTS.includes(word)) {
+                return `<span class="token-constant">${word}</span>`;
+              }
+              if (PYTHON_BUILTINS.includes(word)) {
+                return `<span class="token-builtin">${word}</span>`;
+              }
+              return word;
+            });
+
+            text = text.replace(/\b(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g, '<span class="token-number">$1</span>');
+            return text;
+          });
+
+          return highlightedParts.join('') + commentPart;
+        }).join('\n');
+      }
+
+      function updateHighlight() {
+        const editor = document.getElementById('code-editor');
+        const highlightLayer = document.getElementById('highlight-layer');
+        if (!editor || !highlightLayer) return;
+
+        let val = editor.value;
+        if (val.endsWith('\n')) {
+          val += ' ';
+        }
+        highlightLayer.innerHTML = highlightPython(val);
+      }
+
+      function formatNoteFullDate(isoString) {
+        const d = new Date(isoString || Date.now());
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        const day = d.getDate();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${y}年${m}月${day}日 ${hh}:${mm}`;
+      }
+
+      function formatNoteShortTime(isoString) {
+        const d = new Date(isoString || Date.now());
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+      }
+
+      function parseNotePreview(content) {
+        if (!content || !content.trim()) {
+          return { title: '新备忘录', snippet: '无更多文本' };
+        }
+        const lines = content.split('\n').filter(l => l.trim().length > 0);
+        let title = lines[0] ? lines[0].replace(/^[#\s]+/, '').trim() : '新备忘录';
+        if (title.length > 22) title = title.substring(0, 22) + '...';
+
+        let snippet = lines[1] ? lines[1].trim() : '无更多文本';
+        if (snippet.length > 30) snippet = snippet.substring(0, 30) + '...';
+
+        return { title: title || '新备忘录', snippet };
+      }
+
+      function initData() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            notes = JSON.parse(raw);
+          }
+        } catch(e) {}
+
+        if (!notes || notes.length === 0) {
+          notes = [
+            {
+              id: 'note-1',
+              title: '新备忘录',
+              content: '',
+              date: new Date().toISOString()
+            }
+          ];
+          saveToStorage();
+        }
+        activeNoteId = notes[0].id;
+      }
+
+      function saveToStorage() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+        } catch(e) {}
+      }
+
+      function renderNotesList(filterText = '') {
+        const container = document.getElementById('notes-list-container');
+        if (!container) return;
+
+        const countBadge = document.getElementById('note-count-badge');
+        if (countBadge) {
+          countBadge.textContent = `${notes.length} 个脚本`;
+        }
+
+        container.innerHTML = '';
+
+        const filtered = notes.filter(n => {
+          if (!filterText) return true;
+          return n.content.toLowerCase().includes(filterText.toLowerCase()) || 
+                 n.title.toLowerCase().includes(filterText.toLowerCase());
+        });
+
+        if (filtered.length === 0) {
+          container.innerHTML = `
+            <div class="p-4 text-center text-xs text-gray-400">
+              无匹配脚本
+            </div>
+          `;
+          return;
+        }
+
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'text-[11px] font-semibold text-gray-500 px-3 py-1.5 select-none';
+        groupDiv.textContent = '今天';
+        container.appendChild(groupDiv);
+
+        filtered.forEach(note => {
+          const isActive = note.id === activeNoteId;
+          const { title, snippet } = parseNotePreview(note.content);
+          const shortTime = formatNoteShortTime(note.date);
+
+          const item = document.createElement('div');
+          item.className = `p-2.5 rounded-xl cursor-pointer transition select-none flex flex-col justify-center ${
+            isActive
+              ? 'bg-[#E5E5EA] shadow-2xs'
+              : 'hover:bg-black/5'
+          }`;
+
+          item.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold ${isActive ? 'text-gray-900' : 'text-gray-800'} truncate">
+                ${escapeHtml(title)}
+              </span>
+            </div>
+            <div class="flex items-center space-x-1.5 text-[11px] text-gray-500 mt-1 truncate">
+              <span class="font-mono text-gray-700 flex-shrink-0">${shortTime}</span>
+              <span class="text-gray-400 truncate">${escapeHtml(snippet)}</span>
+            </div>
+          `;
+
+          item.addEventListener('click', () => {
+            selectNote(note.id);
+          });
+
+          container.appendChild(item);
+        });
+      }
+
+      function selectNote(noteId) {
+        const note = notes.find(n => n.id === noteId);
+        if (!note) return;
+        activeNoteId = noteId;
+
+        const editor = document.getElementById('code-editor');
+        const dateHeader = document.getElementById('current-note-date');
+        
+        if (editor) {
+          editor.value = note.content || '';
+        }
+        if (dateHeader) {
+          dateHeader.textContent = formatNoteFullDate(note.date);
+        }
+
+        updateLineNumbers();
+        updateHighlight();
+        renderNotesList(document.getElementById('search-input') ? document.getElementById('search-input').value : '');
+      }
+
+      function createNewNote(initialContent = '') {
+        const newNote = {
+          id: 'note-' + Date.now(),
+          title: '新备忘录',
+          content: initialContent,
+          date: new Date().toISOString()
+        };
+        notes.unshift(newNote);
+        saveToStorage();
+        activeNoteId = newNote.id;
+        renderNotesList();
+        selectNote(newNote.id);
+
+        const editor = document.getElementById('code-editor');
+        if (editor) editor.focus();
+      }
+
+      function updateLineNumbers() {
+        const editor = document.getElementById('code-editor');
+        const gutter = document.getElementById('gutter');
+        if (!editor || !gutter) return;
+
+        const lines = editor.value.split('\n');
+        const count = Math.max(lines.length, 1);
+        const lh = Math.round((parseFloat(appSettings.fontSize) || 13.5) * 1.75);
+
+        let html = '';
+        for (let i = 1; i <= count; i++) {
+          html += `<div style="height:${lh}px; line-height:${lh}px;">${i}</div>`;
+        }
+        gutter.innerHTML = html;
+      }
+
+      function appendTerminal(text, type = 'normal') {
+        const term = document.getElementById('terminal-output');
+        if (!term) return;
+
+        const line = document.createElement('div');
+        line.className = 'font-mono whitespace-pre-wrap break-all';
+
+        if (type === 'error') {
+          line.className += ' text-red-600 font-semibold';
+        } else if (type === 'info') {
+          line.className += ' text-blue-600';
+        } else {
+          line.className += ' text-gray-800';
+        }
+
+        line.textContent = text;
+        term.appendChild(line);
+        term.scrollTop = term.scrollHeight;
+      }
+
+      function clearTerminal() {
+        const term = document.getElementById('terminal-output');
+        if (term) {
+          term.innerHTML = '<div class="text-gray-400">// 模拟运行已清空</div>';
+        }
+        const execStatus = document.getElementById('exec-status');
+        if (execStatus) {
+          execStatus.classList.add('hidden');
+        }
+        const explainBtn = document.getElementById('btn-explain-error');
+        if (explainBtn) {
+          explainBtn.classList.add('hidden');
+          explainBtn.classList.remove('flex');
+        }
+        lastExecutionError = null;
+      }
+
+      function runPythonCode() {
+        const editor = document.getElementById('code-editor');
+        if (!editor) return;
+        const code = editor.value;
+
+        const statusEl = document.getElementById('exec-status');
+        const explainBtn = document.getElementById('btn-explain-error');
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+        clearTerminal();
+
+        if (statusEl) {
+          statusEl.textContent = `[执行记录: ${timeStr}]`;
+          statusEl.classList.remove('hidden', 'text-red-500');
+          statusEl.classList.add('text-gray-400');
+        }
+
+        if (explainBtn) {
+          explainBtn.classList.add('hidden');
+          explainBtn.classList.remove('flex');
+        }
+        lastExecutionError = null;
+
+        if (!code.trim()) {
+          appendTerminal('// 当前备忘录无任何代码可运行', 'info');
+          return;
+        }
+
+        if (typeof Sk === 'undefined') {
+          appendTerminal('Python 执行内核正在载入中，请稍后...', 'error');
+          return;
+        }
+
+        function outf(text) {
+          const clean = text.replace(/\r\n/g, '\n');
+          appendTerminal(clean, 'normal');
+        }
+
+        function builtinRead(x) {
+          if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined) {
+            throw "File not found: '" + x + "'";
+          }
+          return Sk.builtinFiles["files"][x];
+        }
+
+        Sk.configure({
+          output: outf,
+          read: builtinRead,
+          __future__: Sk.python3
+        });
+
+        try {
+          const myPromise = Sk.misceval.asyncToPromise(() => {
+            return Sk.importMainWithBody("<stdin>", false, code, true);
+          });
+
+          myPromise.then(
+            () => {
+              if (statusEl) {
+                statusEl.textContent = `✓ 运行完成 (${timeStr})`;
+                statusEl.classList.remove('text-red-500');
+                statusEl.classList.add('text-emerald-600');
+              }
+            },
+            (err) => {
+              const errStr = err.toString();
+              lastExecutionError = errStr;
+              appendTerminal(errStr, 'error');
+
+              if (statusEl) {
+                statusEl.textContent = '✕ 运行错误';
+                statusEl.classList.remove('text-emerald-600', 'text-gray-400');
+                statusEl.classList.add('text-red-500');
+              }
+
+              if (explainBtn) {
+                explainBtn.classList.remove('hidden');
+                explainBtn.classList.add('flex');
+              }
+            }
+          );
+        } catch (e) {
+          const errStr = e.toString();
+          lastExecutionError = errStr;
+          appendTerminal(errStr, 'error');
+
+          if (statusEl) {
+            statusEl.textContent = '✕ 运行错误';
+            statusEl.classList.add('text-red-500');
+          }
+          if (explainBtn) {
+            explainBtn.classList.remove('hidden');
+            explainBtn.classList.add('flex');
+          }
+        }
+      }
+
+      const settingsModal = document.getElementById('settings-modal');
+      const settingsPanel = document.getElementById('settings-panel');
+
+      function openSettingsModal() {
+        if (!settingsModal) return;
+        settingsModal.classList.remove('hidden');
+        setTimeout(() => {
+          settingsModal.classList.remove('opacity-0');
+          if (settingsPanel) settingsPanel.classList.remove('scale-95');
+        }, 10);
+      }
+
+      function closeSettingsModal() {
+        if (!settingsModal) return;
+        settingsModal.classList.add('opacity-0');
+        if (settingsPanel) settingsPanel.classList.add('scale-95');
+        setTimeout(() => {
+          settingsModal.classList.add('hidden');
+        }, 200);
+      }
+
+      safeAddListener('btn-open-settings', 'click', openSettingsModal);
+      safeAddListener('btn-close-settings', 'click', closeSettingsModal);
+
+      if (settingsModal) {
+        settingsModal.addEventListener('click', (e) => {
+          if (e.target === settingsModal) closeSettingsModal();
+        });
+      }
+
+      const fontSlider = document.getElementById('setting-font-size-slider');
+      if (fontSlider) {
+        fontSlider.addEventListener('input', (e) => {
+          appSettings.fontSize = e.target.value;
+          applySettings();
+          updateLineNumbers();
+          updateHighlight();
+          saveSettings();
+        });
+      }
+
+      document.querySelectorAll('.settings-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tabId = btn.getAttribute('data-tab');
+          
+          document.querySelectorAll('.settings-tab-btn').forEach(b => {
+            b.classList.remove('active', 'bg-gray-200/70', 'text-gray-900');
+            b.classList.add('text-gray-600');
+          });
+          btn.classList.add('active', 'bg-gray-200/70', 'text-gray-900');
+          btn.classList.remove('text-gray-600');
+
+          document.querySelectorAll('.settings-tab-panel').forEach(panel => {
+            panel.classList.add('hidden');
+          });
+          const targetPanel = document.getElementById(`tab-pane-${tabId}`);
+          if (targetPanel) {
+            targetPanel.classList.remove('hidden');
+          }
+          if (window.lucide && typeof lucide.createIcons === 'function') {
+            lucide.createIcons();
+          }
+        });
+      });
+
+      document.querySelectorAll('.theme-choice-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.theme-choice-btn').forEach(b => {
+            b.classList.remove('border-2', 'border-gray-900', 'text-gray-900');
+            b.classList.add('border-gray-200', 'text-gray-600');
+          });
+          btn.classList.add('border-2', 'border-gray-900', 'text-gray-900');
+          btn.classList.remove('border-gray-200', 'text-gray-600');
+        });
+      });
+
+      safeAddListener('btn-open-config-file', 'click', () => {
+        createNewNote('# 模拟配置文件: config.json\n{\n  "version": "1.0.0",\n  "interpreter": "Skulpt Python 3",\n  "editor": {\n    "fontSize": ' + appSettings.fontSize + ',\n    "tabSize": 4\n  }\n}');
+        closeSettingsModal();
+      });
+
+      safeAddListener('toggle-sidebar-btn', 'click', () => {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+          sidebar.classList.toggle('collapsed');
+          const btn = document.getElementById('toggle-sidebar-btn');
+          if (btn) {
+            if (sidebar.classList.contains('collapsed')) {
+              btn.classList.add('bg-black/5', 'text-gray-900');
+            } else {
+              btn.classList.remove('bg-black/5', 'text-gray-900');
+            }
+          }
+        }
+      });
+
+      safeAddListener('toggle-right-sidebar-btn', 'click', () => {
+        const rightSidebar = document.getElementById('right-sidebar');
+        if (rightSidebar) {
+          rightSidebar.classList.toggle('collapsed');
+          const btn = document.getElementById('toggle-right-sidebar-btn');
+          if (btn) {
+            if (rightSidebar.classList.contains('collapsed')) {
+              btn.classList.add('bg-black/5', 'text-gray-900');
+            } else {
+              btn.classList.remove('bg-black/5', 'text-gray-900');
+            }
+          }
+        }
+      });
+
+      function openRightSidebar() {
+        const rightSidebar = document.getElementById('right-sidebar');
+        if (rightSidebar && rightSidebar.classList.contains('collapsed')) {
+          rightSidebar.classList.remove('collapsed');
+          const btn = document.getElementById('toggle-right-sidebar-btn');
+          if (btn) btn.classList.remove('bg-black/5', 'text-gray-900');
+        }
+      }
+
+      let aiChatHistory = [];
+      let isAiGenerating = false;
+      let codeSnippetStore = [];
+
+      function renderChatBubble(role, contentText) {
+        const container = document.getElementById('ai-chat-messages');
+        if (!container) return null;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex items-end ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+
+        if (role === 'user') {
+          const userBubble = document.createElement('div');
+          userBubble.className = 'max-w-[85%] bg-gradient-to-br from-[#007AFF] to-[#0062D2] text-white rounded-[18px] rounded-br-[4px] px-3.5 py-2 text-[12.5px] leading-relaxed shadow-sm break-words whitespace-pre-wrap selection:bg-white/30 selection:text-white';
+          userBubble.textContent = contentText.trim();
+          wrapper.appendChild(userBubble);
+        } else {
+          const bubble = document.createElement('div');
+          bubble.className = 'w-full bg-white border border-[#E5E5EA] rounded-[18px] rounded-tl-sm p-3 text-gray-800 shadow-sm leading-relaxed text-[12.5px]';
+
+          const parts = contentText.split(/(```[\s\S]*?```)/g);
+          
+          parts.forEach(part => {
+            if (part.startsWith('```') && part.endsWith('```')) {
+              const codeLines = part.slice(3, -3).trim().split('\n');
+              let lang = 'python';
+              if (codeLines[0] && !codeLines[0].includes(' ') && codeLines[0].trim().length < 15) {
+                lang = codeLines[0].trim();
+                codeLines.shift();
+              }
+              const cleanCode = codeLines.join('\n');
+              const snippetIndex = codeSnippetStore.length;
+              codeSnippetStore.push(cleanCode);
+
+              const codeCard = document.createElement('div');
+              codeCard.className = 'my-2 bg-[#1E1E24] text-gray-100 rounded-lg overflow-hidden border border-gray-700/50';
+
+              const header = document.createElement('div');
+              header.className = 'bg-[#18181D] px-2.5 py-1 text-[10px] text-gray-400 flex items-center justify-between border-b border-gray-700/40';
+              header.innerHTML = `<span>${escapeHtml(lang)}</span>`;
+
+              const actionRow = document.createElement('div');
+              actionRow.className = 'space-x-1';
+
+              const applyBtn = document.createElement('button');
+              applyBtn.className = 'hover:text-white px-1.5 py-0.5 rounded bg-gray-700/50 hover:bg-gray-700 text-[10px] transition cursor-pointer';
+              applyBtn.textContent = '填入备忘录';
+              applyBtn.onclick = () => insertCodeIntoEditor(codeSnippetStore[snippetIndex]);
+
+              const copyBtn = document.createElement('button');
+              copyBtn.className = 'hover:text-white px-1.5 py-0.5 rounded bg-gray-700/50 hover:bg-gray-700 text-[10px] transition cursor-pointer';
+              copyBtn.textContent = '复制';
+              copyBtn.onclick = () => copyToClipboardText(codeSnippetStore[snippetIndex]);
+
+              actionRow.appendChild(applyBtn);
+              actionRow.appendChild(copyBtn);
+              header.appendChild(actionRow);
+
+              const pre = document.createElement('pre');
+              pre.className = 'p-2.5 text-[11.5px] font-mono overflow-x-auto leading-relaxed text-gray-200';
+              pre.innerHTML = `<code>${escapeHtml(cleanCode)}</code>`;
+
+              codeCard.appendChild(header);
+              codeCard.appendChild(pre);
+              bubble.appendChild(codeCard);
+            } else {
+              const textChunk = part.trim();
+              if (textChunk) {
+                const p = document.createElement('p');
+                p.className = 'whitespace-pre-wrap mb-1.5 last:mb-0';
+                p.textContent = textChunk;
+                bubble.appendChild(p);
+              }
+            }
+          });
+
+          wrapper.appendChild(bubble);
+        }
+
+        container.appendChild(wrapper);
+        container.scrollTop = container.scrollHeight;
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+          lucide.createIcons();
+        }
+        return wrapper;
+      }
+
+      function insertCodeIntoEditor(code) {
+        const editor = document.getElementById('code-editor');
+        if (!editor) return;
+        editor.value = code;
+        editor.dispatchEvent(new Event('input'));
+        editor.focus();
+      }
+
+      function copyToClipboardText(text) {
+        const temp = document.createElement('textarea');
+        temp.value = text;
+        document.body.appendChild(temp);
+        temp.select();
+        try {
+          document.execCommand('copy');
+        } catch(e) {}
+        document.body.removeChild(temp);
+      }
+
+      async function explainErrorWithAi() {
+        if (!lastExecutionError) return;
+        openRightSidebar();
+
+        const promptText = `运行当前代码时报错了，请帮我分析原因并给出修复方案：\n报错信息：${lastExecutionError}`;
+        const inputEl = document.getElementById('ai-input-text');
+        if (inputEl) {
+          inputEl.value = promptText;
+        }
+        handleSendAiMessage();
+      }
+
+      async function callGeminiApi(promptText, attachedCode) {
+        const apiKey = "";
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        let fullPrompt = promptText;
+        if (attachedCode && attachedCode.trim()) {
+          fullPrompt = `用户当前正在编辑的 Python 代码如下：\n\`\`\`python\n${attachedCode}\n\`\`\`\n\n用户需求：\n${promptText}`;
+        }
+
+        const systemPrompt = "你是一名内置在 macOS 备忘录风格代码编辑器中的 Python 专家助手。请用清晰、直接、友好的中文回答用户。如果有代码，请用标准 markdown 代码块 (```python ... ```) 包裹，方便用户一键填入编辑器或复制。解释要点言简意赅。";
+
+        const contents = aiChatHistory.map(item => ({
+          role: item.role === 'user' ? 'user' : 'model',
+          parts: [{ text: item.text }]
+        }));
+
+        contents.push({
+          role: 'user',
+          parts: [{ text: fullPrompt }]
+        });
+
+        const payload = {
+          contents: contents,
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          }
+        };
+
+        let delay = 1000;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const resp = await fetch(apiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!resp.ok) {
+              throw new Error(`HTTP error ${resp.status}`);
+            }
+
+            const data = await resp.json();
+            const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (reply) return reply;
+          } catch (err) {
+            if (attempt === 2) throw err;
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+          }
+        }
+        throw new Error("无法连接至 AI 服务");
+      }
+
+      async function handleSendAiMessage() {
+        if (isAiGenerating) return;
+
+        const inputEl = document.getElementById('ai-input-text');
+        const sendBtn = document.getElementById('ai-send-btn');
+        const attachCb = document.getElementById('ai-attach-code-checkbox');
+        if (!inputEl) return;
+
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        const editor = document.getElementById('code-editor');
+        const currentCode = (attachCb && attachCb.checked && editor) ? editor.value : '';
+
+        renderChatBubble('user', text);
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+
+        isAiGenerating = true;
+        if (sendBtn) sendBtn.disabled = true;
+
+        const container = document.getElementById('ai-chat-messages');
+        const loadingWrapper = document.createElement('div');
+        loadingWrapper.className = 'flex items-end justify-start';
+        loadingWrapper.innerHTML = `
+          <div class="bg-white border border-[#E5E5EA] rounded-[18px] rounded-tl-sm px-3.5 py-2 text-gray-500 text-xs shadow-sm flex items-center space-x-2">
+            <span class="inline-block w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping"></span>
+            <span class="text-[11.5px]">思考中...</span>
+          </div>
+        `;
+        if (container) {
+          container.appendChild(loadingWrapper);
+          container.scrollTop = container.scrollHeight;
+        }
+
+        try {
+          const reply = await callGeminiApi(text, currentCode);
+          if (loadingWrapper.parentNode) loadingWrapper.remove();
+          
+          renderChatBubble('model', reply);
+          aiChatHistory.push({ role: 'user', text: text });
+          aiChatHistory.push({ role: 'model', text: reply });
+        } catch (e) {
+          if (loadingWrapper.parentNode) loadingWrapper.remove();
+          renderChatBubble('model', `⚠️ 请求失败: ${e.message || '请检查网络重试'}`);
+        } finally {
+          isAiGenerating = false;
+          if (sendBtn) sendBtn.disabled = false;
+        }
+      }
+
+      safeAddListener('ai-send-btn', 'click', handleSendAiMessage);
+      
+      const aiInputText = document.getElementById('ai-input-text');
+      if (aiInputText) {
+        aiInputText.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendAiMessage();
+          }
+        });
+      }
+
+      safeAddListener('btn-new-note', 'click', () => createNewNote(''));
+      safeAddListener('btn-run-code', 'click', runPythonCode);
+      safeAddListener('btn-clear-terminal', 'click', clearTerminal);
+      safeAddListener('btn-explain-error', 'click', explainErrorWithAi);
+
+      safeAddListener('search-input', 'input', (e) => {
+        renderNotesList(e.target.value);
+      });
+
+      const editorEl = document.getElementById('code-editor');
+      const gutterEl = document.getElementById('gutter');
+      const highlightLayerEl = document.getElementById('highlight-layer');
+
+      if (editorEl) {
+        editorEl.addEventListener('input', () => {
+          updateLineNumbers();
+          updateHighlight();
+          const currentNote = notes.find(n => n.id === activeNoteId);
+          if (currentNote) {
+            currentNote.content = editorEl.value;
+            currentNote.date = new Date().toISOString();
+            const dateHeader = document.getElementById('current-note-date');
+            if (dateHeader) {
+              dateHeader.textContent = formatNoteFullDate(currentNote.date);
+            }
+            saveToStorage();
+            const searchVal = document.getElementById('search-input') ? document.getElementById('search-input').value : '';
+            renderNotesList(searchVal);
+          }
+        });
+
+        editorEl.addEventListener('keydown', (e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            e.preventDefault();
+            runPythonCode();
+            return;
+          }
+
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = editorEl.selectionStart;
+            const end = editorEl.selectionEnd;
+            const val = editorEl.value;
+            const spaces = '    ';
+
+            editorEl.value = val.substring(0, start) + spaces + val.substring(end);
+            editorEl.selectionStart = editorEl.selectionEnd = start + spaces.length;
+            editorEl.dispatchEvent(new Event('input'));
+          }
+        });
+
+        editorEl.addEventListener('scroll', () => {
+          if (gutterEl) gutterEl.scrollTop = editorEl.scrollTop;
+          if (highlightLayerEl) {
+            highlightLayerEl.scrollTop = editorEl.scrollTop;
+            highlightLayerEl.scrollLeft = editorEl.scrollLeft;
+          }
+        });
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        loadSettings();
+        loadProviders();
+        renderProvidersList();
+        initData();
+        renderNotesList();
+        selectNote(activeNoteId);
+        updateLineNumbers();
+        updateHighlight();
+
+        if (window.innerWidth < 768) {
+          const sidebar = document.getElementById('sidebar');
+          const sidebarBtn = document.getElementById('toggle-sidebar-btn');
+          if (sidebar) {
+            sidebar.classList.add('collapsed');
+            if (sidebarBtn) sidebarBtn.classList.add('bg-black/5', 'text-gray-900');
+          }
+          const rightSidebar = document.getElementById('right-sidebar');
+          const rightSidebarBtn = document.getElementById('toggle-right-sidebar-btn');
+          if (rightSidebar) {
+            rightSidebar.classList.add('collapsed');
+            if (rightSidebarBtn) rightSidebarBtn.classList.add('bg-black/5', 'text-gray-900');
+          }
+        }
+
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+          lucide.createIcons();
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        updateHighlight();
+        updateLineNumbers();
+      });
+    </script>
+  </body>
+</html>

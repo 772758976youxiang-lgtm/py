@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>macOS 备忘录 - Python 代码实验室</title>
+<!-- Tailwind CSS -->
+<!-- Lucide Icons -->
+<!-- Skulpt Python In-Browser Engine -->
+</head>
+<body class="bg-[#2D2D2D] h-screen w-screen overflow-hidden flex items-center justify-center p-0 sm:p-2 md:p-4">
+<!-- Main Window Container -->
+<div class="w-full h-full max-w-none md:max-w-[1600px] bg-white rounded-none sm:rounded-xl macos-window-shadow flex flex-col overflow-hidden border-0 sm:border border-[#D1D1D6]/60" id="app">
+<!-- Top macOS Toolbar -->
+<header class="h-14 min-h-[56px] bg-[#F6F6F6] border-b border-[#E5E5E7] flex items-center justify-between px-2.5 sm:px-4 select-none relative z-20 gap-2">
+<!-- Left: Traffic Lights & Actions -->
+<div class="flex items-center space-x-1.5 sm:space-x-2.5 flex-shrink-0">
+<div class="hidden xs:flex items-center space-x-1.5 sm:space-x-2 mr-0.5 sm:mr-1">
+<span class="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E] hover:opacity-80 transition cursor-pointer"></span>
+<span class="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123] hover:opacity-80 transition cursor-pointer"></span>
+<span class="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29] hover:opacity-80 transition cursor-pointer"></span>
+</div>
+<!-- Left Sidebar Toggle -->
+<button class="p-1.5 text-gray-500 hover:text-gray-900 rounded-md hover:bg-black/5 transition" id="toggle-left" title="显示/隐藏左边栏">
+<i class="w-4 h-4" data-lucide="panel-left"></i>
+</button>
+<!-- New Note Button -->
+<button class="p-1.5 text-gray-500 hover:text-gray-900 rounded-md hover:bg-black/5 transition" id="new-note" title="新建备忘录">
+<i class="w-4 h-4" data-lucide="square-pen"></i>
+</button>
+<!-- App Title -->
+<div class="flex flex-col ml-0.5 sm:ml-1">
+<span class="text-xs font-semibold text-gray-800 leading-tight truncate max-w-[85px] sm:max-w-none" data-en="Python Lab" data-zh="Python 模拟">Python 模拟</span>
+<span class="text-[10.5px] sm:text-[11px] text-gray-400" id="note-count">1 个脚本</span>
+</div>
+</div>
+<!-- Center: Search Bar Centered -->
+<div class="flex-1 flex justify-center px-1 sm:px-4 min-w-[110px] max-w-[380px]">
+<div class="relative w-full">
+<i class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" data-lucide="search"></i>
+<input aria-label="搜索脚本" class="w-full pl-8 pr-2.5 py-1.5 text-xs bg-black/5 hover:bg-black/10 focus:bg-white text-gray-800 rounded-md border border-transparent focus:border-[#007AFF] outline-none transition placeholder-gray-400 text-center focus:text-left shadow-none focus:shadow-sm" data-placeholder-en="Search scripts..." data-placeholder-zh="搜索脚本..." id="search" placeholder="搜索脚本..." type="text"/>
+</div>
+</div>
+<!-- Right: AI Assistant Toggle Button -->
+<div class="flex items-center space-x-1.5 justify-end flex-shrink-0">
+<button class="p-1.5 text-gray-500 hover:text-gray-900 rounded-md hover:bg-black/5 transition flex items-center space-x-1" id="toggle-right" title="显示/隐藏 AI 助手">
+<i class="w-4 h-4 text-purple-600" data-lucide="sparkles"></i>
+<span class="text-xs text-gray-700 font-medium hidden md:inline" data-en="AI assistant" data-zh="AI 助手">AI 助手</span>
+</button>
+</div>
+</header>
+<div class="flex-1 flex overflow-hidden relative">
+<!-- Left Sidebar: Note List -->
+<aside class="w-64 sm:w-72 bg-[#F6F6F6] border-r border-[#E5E5E7] flex flex-col flex-shrink-0 select-none overflow-hidden h-full mobile-sidebar-overlay left-0" id="left-panel">
+<div class="flex-1 overflow-y-auto p-2 space-y-1 w-64 sm:w-72" id="note-list">
+<!-- Dynamically populated via JS -->
+</div>
+<!-- Bottom: Settings Button -->
+<div class="h-10 px-2 flex items-center border-t border-[#EAEAEA] w-64 sm:w-72 bg-[#F6F6F6]">
+<button class="w-full flex items-center justify-between px-2.5 py-1.5 text-xs text-gray-700 hover:text-gray-900 rounded-lg hover:bg-black/5 active:bg-black/10 transition group" id="open-settings" title="打开设置">
+<div class="flex items-center space-x-2">
+<i class="w-4 h-4 text-gray-500 group-hover:rotate-45 transition-transform duration-300" data-lucide="settings"></i>
+<span class="font-medium text-xs" data-en="Settings" data-zh="设置">设置</span>
+</div>
+<i class="w-3.5 h-3.5 text-gray-400 group-hover:translate-x-0.5 transition-transform" data-lucide="chevron-right"></i>
+</button>
+</div>
+</aside>
+<!-- Center Area: Editor + Terminal Panel -->
+<main class="flex-1 flex flex-col h-full bg-white relative overflow-hidden min-w-[200px]">
+<!-- Note Date Stamp -->
+<div class="h-8 flex items-center justify-center text-center select-none pt-2 pb-1 border-b border-transparent">
+<span class="text-xs text-gray-400 font-medium tracking-wide" id="note-date">
+              2026年9月27日 14:19
+            </span>
+</div>
+<!-- Code Editor Body (Gutter + Highlight Layer + Textarea) -->
+<div class="flex-1 relative overflow-hidden flex bg-white">
+<!-- Line Numbers Gutter -->
+<div class="w-11 sm:w-12 bg-white text-gray-300 select-none text-right pr-2.5 pt-[14px] font-mono border-r border-[#F0F0F2] flex-shrink-0 overflow-hidden leading-[24px]" id="gutter">
+<div>1</div>
+</div>
+<!-- Editor Wrapper -->
+<div class="flex-1 relative h-full overflow-hidden">
+<!-- Syntax Highlight Overlay -->
+<pre aria-hidden="true" class="editor-layer-shared absolute inset-0 overflow-auto pointer-events-none text-gray-800 m-0 z-0 bg-transparent select-none" id="highlight"><code></code></pre>
+<!-- Transparent Input Textarea -->
+<textarea aria-label="Python 代码编辑器" autocapitalize="off" autocomplete="off" autocorrect="off" class="editor-layer-shared absolute inset-0 w-full h-full overflow-auto z-10 font-mono" data-placeholder-en="# Write Python code here..." data-placeholder-zh="# 在这里编写 Python 代码..." id="editor" placeholder="# 在这里编写 Python 代码..." spellcheck="false"></textarea>
+</div>
+</div>
+<div class="h-44 sm:h-56 max-h-[48vh] bg-white text-gray-800 border-t border-[#E5E5E5] flex flex-col select-text" id="terminal-drawer">
+<!-- Terminal Header Bar -->
+<div class="h-9 bg-[#F5F5F7] px-3.5 flex items-center justify-between border-b border-[#E8E8E8] select-none">
+<div class="flex items-center space-x-2 overflow-hidden">
+<i class="w-3.5 h-3.5 text-gray-500 flex-shrink-0" data-lucide="play-circle"></i>
+<span class="text-xs font-semibold text-gray-700 tracking-tight flex-shrink-0" data-en="Run output" data-zh="模拟运行">模拟运行</span>
+<span class="text-[11px] text-gray-400 ml-1 truncate hidden" id="run-status"></span>
+<!-- Explain Error Button (AI) -->
+<button class="hidden items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] bg-red-50 hover:bg-purple-50 text-red-600 hover:text-purple-700 border border-red-200 hover:border-purple-300 transition active:scale-95 shadow-sm flex-shrink-0" id="explain-error">
+<i class="w-3 h-3 text-purple-600" data-lucide="sparkles"></i>
+<span class="font-medium" data-en="Explain with AI" data-zh="AI 解释原因">AI 解释原因</span>
+</button>
+</div>
+<!-- Terminal Actions -->
+<div class="flex items-center space-x-2 flex-shrink-0">
+<button class="danger hidden" id="stop"><i data-lucide="square"></i><span data-t="stop">停止</span></button><button class="flex items-center space-x-1.5 bg-[#007AFF] hover:bg-[#0062D2] active:bg-[#0051B3] text-white px-2.5 py-1 rounded-md text-xs font-medium shadow-sm transition active:scale-95" id="run" title="运行代码 (⌘+Enter)">
+<i class="w-3 h-3 fill-current" data-lucide="play"></i>
+<span data-en="Run" data-zh="运行">运行</span>
+<span class="text-[10px] opacity-75 hidden sm:inline ml-0.5">⌘↵</span>
+</button>
+<button class="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 rounded hover:bg-black/5 transition" data-en="Clear" data-zh="清空" id="clear-output" title="清空输出">
+                  清空
+                </button>
+</div>
+</div>
+<!-- Terminal Output Area -->
+<div class="flex-1 p-3.5 overflow-y-auto font-mono text-[12.5px] leading-relaxed space-y-1 bg-white selection:bg-[#B3D7FF]" id="terminal-output"><div id="terminal-hint">
+<div class="text-gray-400" data-en="// Python environment is ready" data-zh="// Python 模拟环境已就绪">// Python 模拟环境已就绪</div>
+<div class="text-gray-400" data-en="// Click Run or press ⌘+Enter to see output" data-zh="// 点击右上角 “运行” 按钮或按 ⌘+Enter 查看输出">// 点击右上角 “运行” 按钮或按 ⌘+Enter 查看输出</div>
+</div><pre class="whitespace-pre-wrap break-all" id="stdout"></pre><pre class="whitespace-pre-wrap break-all" id="stderr"></pre></div>
+<form class="stdin-form hidden" id="stdin-form"><span>❯</span><input aria-label="程序标准输入" autocomplete="off" data-placeholder="stdin" id="stdin"/><button class="text-button" data-t="submitInput" type="submit">输入 ↵</button><button class="text-button" data-title="eof" id="stdin-eof" type="button">EOF</button></form></div>
+</main>
+<aside class="w-72 sm:w-80 md:w-88 bg-[#FBFBFD] border-l border-[#E5E5E7] flex flex-col flex-shrink-0 select-none overflow-hidden h-full mobile-sidebar-overlay right-0" id="right-panel">
+<!-- Chat Messages Container -->
+<div class="flex-1 p-3 overflow-y-auto space-y-3 text-xs select-text" id="chat-messages">
+</div>
+<!-- Chat Input Area -->
+<div class="p-2.5 bg-white border-t border-[#E8E8EB] flex-shrink-0">
+<form class="relative bg-[#F5F5F7] rounded-xl border border-gray-200 focus-within:border-purple-500 focus-within:bg-white transition-all shadow-inner" id="chat-form">
+<textarea aria-label="发送给 AI 的消息" class="w-full bg-transparent px-3 py-2 text-xs text-gray-800 placeholder-gray-400 outline-none resize-none leading-relaxed" data-placeholder-en="Ask AI... (Enter to send)" data-placeholder-zh="询问 AI 助手... (Enter 发送)" id="chat-input" placeholder="询问 AI 助手... (Enter 发送)" rows="2"></textarea>
+<div class="flex items-center justify-between px-2.5 pb-2 pt-0.5">
+<label class="flex items-center space-x-1 cursor-pointer select-none">
+<input checked="" class="rounded text-purple-600 focus:ring-0 w-3 h-3 border-gray-300" id="attach-code" type="checkbox"/>
+<span class="text-[10.5px] text-gray-500" data-en="Attach code" data-zh="附带代码">附带代码</span>
+</label>
+<button class="bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-40 text-white rounded-lg px-2.5 py-1 text-[11px] font-medium transition flex items-center space-x-1" id="send" type="submit">
+<span data-en="Send" data-zh="发送">发送</span>
+<i class="w-3 h-3" data-lucide="arrow-up"></i>
+</button>
+</div>
+</form>
+</div>
+</aside>
+</div>
+</div>
+<dialog aria-label="设置" class="bg-white rounded-2xl shadow-2xl overflow-hidden flex-col transition-transform duration-200 border border-gray-200/80 flex-shrink-0" id="settings-dialog">
+<!-- Settings Modal Top Bar -->
+<div class="h-13 min-h-[52px] bg-white border-b border-gray-100 px-4 sm:px-6 flex items-center justify-between flex-shrink-0 select-none">
+<span class="text-base font-bold text-gray-900 tracking-tight" data-en="Settings" data-zh="设置">设置</span>
+<div class="flex items-center space-x-2 sm:space-x-3">
+<button class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition" id="close-settings" title="关闭设置">
+<i class="w-4 h-4" data-lucide="x"></i>
+</button>
+</div>
+</div>
+<!-- Settings Body Split Layout -->
+<div class="flex-1 flex overflow-hidden min-h-0">
+<!-- Left Navigation Menu -->
+<div class="w-48 sm:w-52 bg-[#FBFBFD] border-r border-gray-100 p-3 sm:p-3.5 flex flex-col space-y-1 flex-shrink-0 select-none">
+<button class="settings-tab-btn active flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-900 bg-gray-200/70 transition" data-tab="general">
+<i class="w-4 h-4 text-gray-700 flex-shrink-0" data-lucide="settings"></i>
+<span class="truncate" data-en="General" data-zh="通用设置">通用设置</span>
+</button>
+<button class="settings-tab-btn flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100/70 transition" data-tab="providers">
+<i class="w-4 h-4 text-gray-500 flex-shrink-0" data-lucide="cpu"></i>
+<span class="truncate" data-en="Models" data-zh="模型">模型</span>
+</button>
+</div>
+<!-- Right Content Area -->
+<div class="flex-1 overflow-y-auto px-6 sm:px-8 py-5 sm:py-6 text-xs text-gray-800 select-none" id="settings-content-pane">
+<!-- Tab Pane 1: 通用设置 -->
+<div class="settings-tab-panel space-y-4 sm:space-y-5 tab-panel" id="tab-general">
+<!-- 语言 -->
+<div class="flex items-center justify-between py-0.5">
+<div>
+<div class="text-sm font-medium text-gray-900" data-en="Language" data-zh="语言">语言</div>
+</div>
+<div class="relative">
+<select aria-label="语言" class="appearance-none bg-[#F5F5F7] hover:bg-gray-200/80 border border-transparent rounded-xl px-3.5 py-1.5 pr-7 text-xs font-medium text-gray-800 outline-none cursor-pointer transition" id="setting-language">
+<option selected="" value="zh">中文</option>
+<option value="en">English</option>
+</select>
+<i class="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" data-lucide="chevron-down"></i>
+</div>
+</div>
+<!-- 外观 -->
+<div class="space-y-2 py-0.5">
+<div class="text-sm font-medium text-gray-900" data-en="Appearance" data-zh="外观">外观</div>
+<div class="grid grid-cols-3 gap-2 sm:gap-3 theme-options">
+<button class="theme-choice-btn active flex flex-col items-center justify-center p-2.5 sm:p-3.5 rounded-xl border-2 border-gray-900 bg-white text-gray-900 transition hover:shadow-xs group cursor-pointer" data-theme="light" type="button">
+<i class="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-1.5 text-gray-800 group-hover:scale-105 transition-transform" data-lucide="sun"></i>
+<span class="text-xs font-medium" data-en="Light" data-zh="浅色">浅色</span>
+</button>
+<button class="theme-choice-btn flex flex-col items-center justify-center p-2.5 sm:p-3.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-gray-400 transition hover:shadow-xs group cursor-pointer" data-theme="dark" type="button">
+<i class="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-1.5 text-gray-600 group-hover:scale-105 transition-transform" data-lucide="moon"></i>
+<span class="text-xs font-medium" data-en="Dark" data-zh="深色">深色</span>
+</button>
+<button class="theme-choice-btn flex flex-col items-center justify-center p-2.5 sm:p-3.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:border-gray-400 transition hover:shadow-xs group cursor-pointer" data-theme="system" type="button">
+<i class="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-1.5 text-gray-600 group-hover:scale-105 transition-transform" data-lucide="monitor"></i>
+<span class="text-xs font-medium truncate" data-en="System" data-zh="跟随系统">跟随系统</span>
+</button>
+</div>
+</div>
+<!-- 字号大小 -->
+<div class="space-y-1.5 py-0.5">
+<div class="flex items-center justify-between">
+<div>
+<div class="text-sm font-medium text-gray-900" data-en="Font size" data-zh="字号大小">字号大小</div>
+<div class="text-[11.5px] text-gray-400 mt-0.5" data-en="Applies to chat and code editor content" data-zh="仅影响会话与代码编辑器内容的字号">仅影响会话与代码编辑器内容的字号</div>
+</div>
+<div class="flex items-center space-x-1.5">
+<div class="bg-[#F5F5F7] px-3 py-1 rounded-xl font-mono text-xs font-semibold text-gray-800 min-w-[46px] text-center border border-gray-100">
+<span id="font-value">13.5</span>
+</div>
+<span class="text-gray-400 font-medium text-xs">px</span>
+</div>
+</div>
+<!-- 滑动调节条 -->
+<div class="pt-1 flex items-center space-x-3">
+<span class="text-[11px] text-gray-400 font-semibold select-none">A</span>
+<input class="flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none" id="setting-font" max="22" min="11" step="0.5" type="range" value="13.5"/>
+<span class="text-sm text-gray-700 font-bold select-none">A</span>
+</div>
+</div>
+</div>
+<!-- Tab Pane 2: 模型 -->
+<div class="settings-tab-panel hidden space-y-4 tab-panel" id="tab-providers">
+<!-- View 1: Provider List -->
+<div class="space-y-3.5" id="provider-list-view">
+<div>
+<h3 class="text-base font-bold text-gray-900 tracking-tight" data-en="Models" data-zh="模型">模型</h3>
+<p class="text-xs text-gray-500 mt-1" data-en="Enter a provider API key to use its models." data-zh="填入各提供商的 API 密钥即可使用其模型。">填入各提供商的 API 密钥即可使用其模型。</p>
+</div>
+<!-- Provider Card Container -->
+<div class="space-y-2.5 pt-1" id="provider-list">
+<!-- Dynamically rendered via JS -->
+</div>
+<!-- Add Provider Dashed Button -->
+<button class="w-full py-3 px-4 border border-dashed border-gray-300 hover:border-gray-400 active:border-gray-500 rounded-2xl text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50/60 active:bg-gray-100 transition flex items-center justify-center space-x-1.5 select-none cursor-pointer" id="add-provider" type="button">
+<span class="text-sm font-light leading-none">+</span>
+<span data-en="Add model provider" data-zh="添加模型提供商">添加模型提供商</span>
+</button>
+</div>
+<!-- View 2: Add / Edit Provider Form -->
+<form class="hidden space-y-3 text-xs select-text" id="provider-form">
+<!-- Provider ID -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-700" for="provider-id">Provider ID</label>
+<input class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" id="provider-id" pattern="[a-z][a-z0-9_-]{0,63}" placeholder="acme-gateway" required="" type="text"/>
+<p class="text-[11px] text-gray-400 leading-normal" data-en="A unique provider ID starting with a lowercase letter." data-zh="以小写字母开头的标识，在请求中唯一标识该提供商，并用于派生凭据名。">以小写字母开头的标识，在请求中唯一标识该提供商，并用于派生凭据名。</p>
+</div>
+<!-- Display Name -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-700" data-en="Display name" data-zh="显示名称" for="provider-name">显示名称</label>
+<input class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition" id="provider-name" placeholder="显示名称" required="" type="text"/>
+</div>
+<!-- API Address -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-700" data-en="API URL" data-zh="API 地址" for="provider-url">API 地址</label>
+<input class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition font-mono" id="provider-url" placeholder="https://gateway.example/v1" required="" type="url"/>
+</div>
+<!-- API Protocol Dropdown -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-700" data-en="API protocol" data-zh="API 协议">API 协议</label>
+<div class="relative">
+<select class="w-full appearance-none px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer transition pr-8 font-medium" id="provider-protocol">
+<option selected="" value="openai-chat">OpenAI Chat Completions</option>
+<option value="openai-responses">OpenAI Responses</option>
+<option value="anthropic-messages">Anthropic Messages</option>
+</select>
+<i class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" data-lucide="chevron-down"></i>
+</div>
+</div>
+<!-- API Key -->
+<div class="space-y-1">
+<label class="block text-xs font-medium text-gray-700" data-en="API key" data-zh="API 密钥" for="provider-key">API 密钥</label>
+<input class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition font-mono" id="provider-key" placeholder="输入 API 密钥" type="password"/>
+<label class="checkbox-label"><input id="provider-clear-key" type="checkbox"/><span data-t="removeKey">移除已保存的密钥</span></label></div>
+<!-- Model Directory Section -->
+<div class="space-y-1.5 pt-1.5 border-t border-gray-100">
+<div class="flex items-center justify-between">
+<span class="text-xs font-medium text-gray-700" data-en="Model directory" data-zh="模型目录">模型目录</span>
+<button class="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer transition" data-en="Fetch available models" data-zh="获取可用模型" id="fetch-provider-models" type="button">获取可用模型</button>
+</div>
+<textarea aria-label="模型目录" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none font-mono" id="provider-models" placeholder="每行填写一个模型 ID" rows="3"></textarea>
+<button class="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition flex items-center space-x-1 select-none" id="add-provider-model" type="button">
+<span>+</span>
+<span data-en="Add model" data-zh="添加模型">添加模型</span>
+</button>
+</div>
+<!-- Form Action Buttons -->
+<div class="flex items-center justify-end space-x-2 pt-3 border-t border-gray-100">
+<button class="px-3.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-medium text-gray-700 transition cursor-pointer select-none" data-en="Cancel" data-zh="取消" id="cancel-provider" type="button">
+                    取消
+                  </button>
+<button class="px-3.5 py-1.5 rounded-lg bg-[#8E8E93] hover:bg-[#7A7A80] active:bg-[#68686E] text-white text-xs font-medium transition cursor-pointer select-none" data-en="Create provider" data-zh="创建提供商" id="save-provider" type="submit">
+                    创建提供商
+                  </button>
+</div>
+<button class="hidden" id="delete-provider" type="button">删除此提供商</button></form>
+</div>
+</div>
+</div>
+</dialog>
+<dialog aria-label="脚本与模型管理" class="utility-dialog" id="utility-dialog"><div class="utility-heading"><strong>脚本与模型管理</strong><button aria-label="关闭管理" id="close-utility" type="button">×</button></div><label>脚本名称 <input aria-label="脚本名称" id="note-title" maxlength="120"/></label><div class="utility-actions"><button id="save-status">已保存</button><button data-t="exportPy" id="export-note">导出为 .py</button><button data-t="delete" id="delete-note">删除脚本</button><button data-t="import" id="import-note">导入脚本</button></div><div class="model-bar"><select aria-label="模型提供商" id="chat-provider"></select><input aria-label="模型 ID" data-placeholder="modelId" id="chat-model" list="model-options"/><datalist id="model-options"></datalist><button class="icon-button small" data-title="models" id="configure-ai"><i data-lucide="sliders-horizontal"></i></button></div><button class="icon-button small" data-title="clearChat" id="clear-chat"><i data-lucide="message-square-x"></i></button><label class="setting-row"><span data-t="indent">缩进空格数</span><select id="setting-tab"><option>2</option><option>4</option><option>8</option></select></label><label class="setting-row"><span data-t="timeout">运行超时（秒）</span><input id="setting-timeout" max="60" min="2" type="number"/></label><section class="utility-data" id="tab-data"><h3 data-t="data">数据管理</h3><p class="muted" data-t="dataHint">脚本、设置与聊天记录保存在本机数据库。</p><div class="data-card"><i data-lucide="archive"></i><h4 data-t="backup">脚本备份</h4><p data-t="backupHint">导出全部脚本为 JSON，可在这里重新导入。备份不包含密钥和聊天记录。</p><div><button data-t="exportAll" id="backup">导出全部脚本</button><button data-t="import" id="restore">导入脚本</button></div></div><div class="data-card"><i data-lucide="book-open"></i><h4 data-t="examples">练习示例</h4><p data-t="examplesHint">从变量、循环与函数开始。示例会创建为新脚本。</p><select aria-label="练习示例" id="example-select"><option data-t="exampleHello" value="hello">变量与输出</option><option data-t="exampleLoop" value="loop">循环与列表</option><option data-t="exampleInput" value="input">交互输入</option><option data-t="exampleFunction" value="function">函数与异常</option></select><button data-t="createExample" id="load-example">创建示例</button></div><p class="note" data-t="importHint">支持 .py、JSON 备份及旧版脚本数组。导入会新增脚本，不会覆盖已有内容。</p></section><span hidden="" id="provider-form-title"></span><span hidden="" id="connection"></span><span hidden="" id="cursor"></span><span hidden="" id="indent-label"></span></dialog><dialog id="confirm-dialog"><h3 id="confirm-title"></h3><p id="confirm-message"></p><div class="form-actions"><button data-t="cancel" id="confirm-no">取消</button><button class="danger" data-t="confirm" id="confirm-yes">确定</button></div></dialog><div class="hidden" id="toast" role="status"></div><div class="connection-error hidden" id="connection-error"><i data-lucide="unplug"></i><h2 data-t="offline">后端尚未连接</h2><p data-t="offlineHint">请启动后端服务，然后重试连接。</p><button class="primary" data-t="retry" id="retry">重试</button></div><input accept=".py,.json" hidden="" id="file-input" multiple="" type="file"/><div class="hidden" id="context-menu" role="menu"><button id="context-manage" role="menuitem">脚本与模型管理</button><button id="context-models" role="menuitem">模型设置</button></div><script src="/src/main.js" type="module"></script></body>
+</html>
